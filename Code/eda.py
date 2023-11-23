@@ -219,5 +219,3 @@ pos_tags = nltk.pos_tag(filtered_corpus, tagset="universal")
 display_top_tokens(pos_tags, 'ADJ')
 
 #%%
-
-
