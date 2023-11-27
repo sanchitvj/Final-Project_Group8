@@ -1,0 +1,17 @@
+# INITIAL SETTINGS
+
+seed: 12536
+debug: False
+save: False
+fold: 0
+
+dataset:
+  data_path: "/nfs/Workspace/brats_brain_segmentation/data/BraTS2021_data/training"
+  num_workers: 8 # batch_size * ngpu
+  batch_size: 1
+
+model:
+  normalization: "group_normalization" # batch_normalization
+  activation: "relu" # elu, leakyrelu
+  num_groups: 16
+  wt_std: False # Weight Standardisation
