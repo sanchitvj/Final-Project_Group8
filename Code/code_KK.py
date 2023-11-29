@@ -62,3 +62,44 @@ print('The average number of words: {}'.format(train['text_word_count'].mean()))
 
 
 # %%
+# a look at the essay's scores with maximum words:
+train[train.text_word_count == train.text_word_count.max()]
+# get essay =='3814F9116CD1'
+train._get_value(725, 'full_text')
+
+# a look at the essay's score with minimum words:
+train[train.text_word_count == train.text_word_count.min()]
+#get essay == 'F69C85F4C3CA':
+train._get_value(3679, 'full_text')
+
+# single sentence essays:
+train[train.sent_count == train.sent_count.min()]
+#get essay == '39:
+train._get_value(39, 'full_text')
+#get essay == '3607:
+train._get_value(3607, 'full_text')
+
+# %% Text length vs. scoring
+score_text_len = train.groupby('total_score')['text_len'].mean().sort_values()
+
+score_text_len.plot(kind = 'barh', figsize = (12,8))
+plt.xlabel('Average Text length')
+plt.title(' Relationship between length of texts and scoring')
+
+# Number of words vs. scoring
+score_word_count = train.groupby('total_score')['text_word_count'].mean().sort_values()
+score_word_count.plot(kind = 'barh', figsize = (12,8))
+plt.xlabel('Average Word_count')
+plt.title(' Relationship between number of words and scoring')
+
+# Number of sentences vs. scoring
+score_sent_count = train.groupby('total_score')['sent_count'].mean().sort_values()
+score_sent_count.plot(kind = 'barh', figsize = (12,8))
+plt.xlabel('Average Sent_count')
+plt.title(' Relationship between number of sentences and scoring')
+
+# %%
+plt.figure(figsize=(15,15))
+colormap = sns.color_palette('Blues')
+sns.heatmap(train.corr(), annot=True, cmap=colormap)
+# %%
