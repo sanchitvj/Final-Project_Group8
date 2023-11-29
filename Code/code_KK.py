@@ -102,4 +102,5 @@ plt.title(' Relationship between number of sentences and scoring')
 plt.figure(figsize=(15,15))
 colormap = sns.color_palette('Blues')
 sns.heatmap(train.corr(), annot=True, cmap=colormap)
+
 # %%
