@@ -6,12 +6,22 @@ save: False
 fold: 0
 
 dataset:
-  data_path: "/nfs/Workspace/brats_brain_segmentation/data/BraTS2021_data/training"
-  num_workers: 8 # batch_size * ngpu
-  batch_size: 1
+  data_path: "train.csv"
+  num_workers: 8  # batch_size * ngpu
+  batch_size: 8
+  max_len: 512
+  n_folds: 4
 
 model:
-  normalization: "group_normalization" # batch_normalization
-  activation: "relu" # elu, leakyrelu
-  num_groups: 16
-  wt_std: False # Weight Standardisation
+  name: "microsoft/deberta-v3-base"
+  checkpointing: True
+
+train:
+  epochs: 4
+  min_lr: 1e-6
+  weight_decay: 0.01
+  eps: 1e-6
+  betas: (0.9, 0.999)
+  encoder_lr: 2e-5
+  decoder_lr: 2e-5
+
