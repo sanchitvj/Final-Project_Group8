@@ -1,12 +1,8 @@
-from abc import ABC
-
 import torch
 import random
 import numpy as np
 import pandas as pd
 from torch.utils.data import Dataset
-from torch.utils.data.dataset import T_co
-from tqdm.auto import tqdm  ########
 import tokenizers
 import transformers
 from transformers import AutoTokenizer, AutoModel, AutoConfig
@@ -21,11 +17,11 @@ print(f"transformers.__version__: {transformers.__version__}")
 
 class FeedbackDataset(Dataset):
 
-    def __init__(self, cfg, df, tokenizer, test=False):
+    def __init__(self, cfg, df, test=False):
         self.df = df.reset_index(drop=True)
         self.classes = ['cohesion', 'syntax', 'vocabulary', 'phraseology', 'grammar', 'conventions']
         self.max_len = cfg.dataset.max_len
-        self.tokenizer = tokenizer
+        self.tokenizer = cfg.tokenizer
         self.test = test
 
     def __getitem__(self, index):

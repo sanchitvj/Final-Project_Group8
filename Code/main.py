@@ -1,28 +1,11 @@
-import hydra
-from omegaconf import DictConfig
-from engine import main
+import torch
+from torch.utils.data import DataLoader
 
-# args = OmegaConf.load('/nfs/Workspace/brats_brain_segmentation/src/config/config.yaml')
-
-#     main(cfg, 0)
-
-# CONFIG_PATH = "/nfs/Workspace/brats_brain_segmentation/src/"
-
-# def load_config(config_name):
-#     with open(os.path.join(CONFIG_PATH, config_name)) as f:
-#         conf = yaml.safe_load(f)
-
-#     return conf
-
-# args = load_config("config.yaml")
+from dataset import FeedbackDataset
 
 
-@hydra.main(config_path="config", config_name="config")
-def func(cfg: DictConfig):
-    main(cfg, cfg.fold)
-
-
-if __name__ == "__main__":
-    func()
-
-# https://github.com/sanchitvj/rsppUnet-BraTS-2021/blob/main/src/main.py
+def main():
+    tr_dataset = FeedbackDataset(cfg, train_fold)
+    train_loader = DataLoader(tr_dataset, batch_size=cfg.dataset.batch_size,
+                              num_workers=cfg.dataset.num_workers, shuffle=True,
+                              pin_memory=True, drop_last=True)
