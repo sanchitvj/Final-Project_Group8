@@ -13,8 +13,13 @@ dataset:
   n_folds: 4
 
 model:
-  name: "microsoft/deberta-v3-base"
+  backbone_name: "microsoft/deberta-v3-base"
   checkpointing: True
+  pooling: 'mean'  # 'lstm'
+  lstm_params:
+    hidden_size:
+    dropout_rate:
+    bidirectional:
 
 train:
   epochs: 4

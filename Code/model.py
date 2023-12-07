@@ -30,7 +30,7 @@ class MeanPooling(nn.Module):
 
 
 class LSTMPooling(nn.Module):
-    def __init__(self, backbone_config, pooling_config, is_lstm=True):
+    def __init__(self, backbone_config, pooling_config):
         super(LSTMPooling, self).__init__()
 
         self.num_hidden_layers = backbone_config.num_hidden_layers
@@ -39,19 +39,12 @@ class LSTMPooling(nn.Module):
         self.dropout_rate = pooling_config.dropout_rate
         self.bidirectional = pooling_config.bidirectional
 
-        self.is_lstm = is_lstm
         self.output_dim = pooling_config.hidden_size*2 if self.bidirectional else pooling_config.hidden_size
 
-        if self.is_lstm:
-            self.lstm = nn.LSTM(self.hidden_size,
-                                self.hidden_lstm_size,
-                                bidirectional=self.bidirectional,
-                                batch_first=True)
-        else:
-            self.lstm = nn.GRU(self.hidden_size,
-                               self.hidden_lstm_size,
-                               bidirectional=self.bidirectional,
-                               batch_first=True)
+        self.lstm = nn.LSTM(self.hidden_size,
+                            self.hidden_lstm_size,
+                            bidirectional=self.bidirectional,
+                            batch_first=True)
 
         self.dropout = nn.Dropout(self.dropout_rate)
 
@@ -75,13 +68,17 @@ class CustomModel(nn.Module):
         self.backbone_config = backbone_config
 
         # if self.cfg.model.use_pretrained:
-        self.backbone = AutoModel.from_pretrained(self.cfg.model.model_type, config=self.backbone_config)
+        self.backbone = AutoModel.from_pretrained(self.cfg.model.backbone_name, config=self.backbone_config)
 
         # Adjust the embedding size of the transformer model
         self.backbone.resize_token_embeddings(len(self.cfg.tokenizer))
 
         # Define a pooling layer and a fully connected layer
-        self.pooling_layer = get_pooling_layer(self.cfg, self.backbone_config)
+        if cfg.model.pooling == 'mean':
+            self.pooling_layer = MeanPooling(backbone_config)
+        else:
+            self.pooling_layer = LSTMPooling(backbone_config, cfg.model.lstm_params)
+
         self.classifier = nn.Linear(self.pooling_layer.output_dim, len(self.cfg.general.target_labels))
 
         # Initialize weights of the classifier
