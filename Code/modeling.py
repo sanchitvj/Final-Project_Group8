@@ -24,10 +24,7 @@ class EssayDataset:
     def __init__(self, df, max_len, tokenizer, test=False):
         self.test = test
         self.max_length = max_len
-        self.classes = ['cohesion', 'syntax', 'vocabulary', 'phraseology', 'grammar', 'conventions']
         self.texts = list(df['full_text'].values)
-        if self.test is False:
-            self.labels = df.loc[:, self.classes].values
         self.tokenizer = tokenizer
 
     def __len__(self):
@@ -38,12 +35,18 @@ class EssayDataset:
         text = self.tokenizer.texts_to_sequences([text])[0]
         text = pad_sequences([text], maxlen=self.max_length, padding='pre', truncating='post')[0]
         text = torch.tensor(text, dtype=torch.long)
-        if self.test is False:
-            label = self.labels[idx, :] / 5.
-            label = torch.tensor(label, dtype=torch.float32)
+        if not self.test:
+            label_cols = ['cohesion', 'syntax', 'vocabulary', 'phraseology', 'grammar', 'conventions']
+            labels = df.loc[idx, label_cols].values / 5.
+            label = torch.tensor(labels, dtype=torch.float32)
             return text, label
         return text
 
+# sample_ds = EssayDataset(df,512,tokenizer)
+# sample_ds[0]
+
+
+#%%
 class RNNModel(nn.Module):
     def __init__(self, vocab_size, embed_dim, hidden_dim, seq_len, n_layers, output_dim, lr):
         super(RNNModel, self).__init__()
@@ -167,8 +170,7 @@ model = RNNModel(config['vocab'], config['embed_dim'], config['hidden_dim'], con
 #         outputs = model(inputs)
 #         predictions.append(outputs.squeeze().tolist())
 
-# Previous code remains unchanged
-
+predictions =[]
 model.eval()
 test_loss = model.val_step(test_loader)
 
