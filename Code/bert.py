@@ -6,8 +6,8 @@ from torch.optim import lr_scheduler
 from torch import nn
 from torch.optim import Adam
 
-df = pd.read_csv('train.csv')
-test = pd.read_csv('test.csv')
+df = pd.read_csv('train_df.csv')
+test = pd.read_csv('test_df.csv')
 
 
 def process_text(df):

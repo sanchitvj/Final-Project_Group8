@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 from nltk.tokenize import word_tokenize, sent_tokenize
 
 #%%
-train = pd.read_csv('train.csv')
-test = pd.read_csv('test.csv')
+train = pd.read_csv('train_df.csv')
+test = pd.read_csv('test_df.csv')
 
 #train.head()
 train.info()

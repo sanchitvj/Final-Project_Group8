@@ -13,8 +13,8 @@ from tqdm.notebook import tqdm
 from sklearn.model_selection import train_test_split
 import gc
 
-df = pd.read_csv('train.csv')
-test = pd.read_csv('test.csv')
+df = pd.read_csv('train_df.csv')
+test = pd.read_csv('test_df.csv')
 
 
 tokenizer = Tokenizer(lower=False,oov_token='<OOV>')
