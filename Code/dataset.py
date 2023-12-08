@@ -3,9 +3,11 @@ import random
 import numpy as np
 import pandas as pd
 from torch.utils.data import Dataset
+from torch.nn.utils.rnn import pad_sequence
 import tokenizers
 import transformers
 from transformers import AutoTokenizer, AutoModel, AutoConfig
+
 print(f"tokenizers.__version__: {tokenizers.__version__}")
 print(f"transformers.__version__: {transformers.__version__}")
 
@@ -26,11 +28,11 @@ class FeedbackDataset(Dataset):
 
     def __getitem__(self, index):
         text = self.df["full_text"][index]
-        tokenization = self.tokenizer(text,
-                                      add_special_tokens=True,
-                                      max_length=self.max_len,
-                                      truncation=True,
-                                      return_offsets_mapping=False)
+        tokenization = self.tokenizer.encode_plus(text,
+                                                  add_special_tokens=True,
+                                                  max_length=self.max_len,
+                                                  truncation=True,
+                                                  return_offsets_mapping=False)
 
         inputs = {
             "input_ids": torch.tensor(tokenization['input_ids'], dtype=torch.long),
@@ -57,15 +59,17 @@ def collate_fn(batch):
     inputs = [item[0] for item in batch]
     targets = [item[1] for item in batch if len(item) > 1]
 
-    # Batch input
+    # Pad and batch input
     batched_input = {
-        'input_ids': torch.stack([x['input_ids'] for x in inputs]),
-        'token_type_ids': torch.stack([x['token_type_ids'] for x in inputs]),
-        'attention_mask': torch.stack([x['attention_mask'] for x in inputs])
+        'input_ids': pad_sequence([x['input_ids'] for x in inputs], batch_first=True, padding_value=0),
+        'token_type_ids': pad_sequence([x['token_type_ids'] for x in inputs], batch_first=True, padding_value=0),
+        'attention_mask': pad_sequence([x['attention_mask'] for x in inputs], batch_first=True, padding_value=0)
     }
 
     # Check if targets are available
     if len(targets) > 0:
+        # If targets are already of the same length or are single values, you can stack them directly
+        # Otherwise, you may need to pad them similarly as input_ids
         batched_targets = {
             'labels': torch.stack([x['labels'] for x in targets])
         }
@@ -74,3 +78,8 @@ def collate_fn(batch):
     return batched_input
 
 
+def collate(inputs):
+    mask_len = int(inputs["attention_mask"].sum(axis=1).max())
+    for k, v in inputs.items():
+        inputs[k] = inputs[k][:, :mask_len]
+    return inputs

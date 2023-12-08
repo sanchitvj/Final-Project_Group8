@@ -79,7 +79,7 @@ class CustomModel(nn.Module):
         else:
             self.pooling_layer = LSTMPooling(backbone_config, cfg.model.lstm_params)
 
-        self.classifier = nn.Linear(self.pooling_layer.output_dim, len(self.cfg.general.target_labels))
+        self.classifier = nn.Linear(self.pooling_layer.output_dim, len(self.cfg.dataset.labels))
 
         # Initialize weights of the classifier
         self.initialize_weights(self.classifier)

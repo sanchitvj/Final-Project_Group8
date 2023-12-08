@@ -4,29 +4,40 @@ seed: 12536
 debug: False
 save: False
 fold: 0
+resume_train: False
+
+logger:
+  project_name: 'feedback'
+  run_name: 'deberta_base'
+  key: 'd5d895d7e20cad280f1c9663b87cc40aa7eeb73b'
+  save: False
 
 dataset:
-  data_path: "train.csv"
+  data_path: 'train.csv'
   num_workers: 8  # batch_size * ngpu
-  batch_size: 8
+  batch_size: 24
   max_len: 512
   n_folds: 4
+  labels: ['cohesion', 'syntax', 'vocabulary', 'phraseology', 'grammar', 'conventions']
 
 model:
-  backbone_name: "microsoft/deberta-v3-base"
-  checkpointing: True
+  backbone_name: 'microsoft/deberta-v3-base'
+  gradient_checkpointing: True
   pooling: 'mean'  # 'lstm'
+  saved_model_path: ''
+
   lstm_params:
     hidden_size:
     dropout_rate:
     bidirectional:
 
-train:
-  epochs: 4
+training:
+  epochs: 10
   min_lr: 1e-6
   weight_decay: 0.01
   eps: 1e-6
-  betas: (0.9, 0.999)
+  betas: [0.9, 0.999]
   encoder_lr: 2e-5
   decoder_lr: 2e-5
+  max_grad_norm: 1000
 
