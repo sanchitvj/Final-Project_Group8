@@ -59,12 +59,11 @@ class FeedbackModel(nn.Module):
 
         self.bert = BertModel.from_pretrained("bert-base-uncased")
         self.dropout = nn.Dropout(dropout)
-        self.linear = nn.Linear(768, 256)  # Adjusted dimension
+        self.linear = nn.Linear(768, 256)
         self.relu = nn.ReLU()
         self.out = nn.Linear(256, 6)
 
     def forward(self, input_id, mask):
-        # Get pooled output from BERT
         _, pooled_output = self.bert(input_ids=input_id, attention_mask=mask, return_dict=False)
         x = self.dropout(pooled_output)
         x = self.linear(x)

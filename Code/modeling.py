@@ -2,9 +2,7 @@ import torch
 import torch.nn as nn
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from torch.utils.data import DataLoader
-# import pytorch_lightning as pl
-# from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 from nltk.tokenize import word_tokenize
 from keras.preprocessing.text import Tokenizer
@@ -16,15 +14,19 @@ import gc
 df = pd.read_csv('train_df.csv')
 test = pd.read_csv('test_df.csv')
 
-
 tokenizer = Tokenizer(lower=False,oov_token='<OOV>')
 tokenizer.fit_on_texts(df['full_text'])
 
-class EssayDataset:
+
+class EssayDataset(Dataset):
     def __init__(self, df, max_len, tokenizer, test=False):
         self.test = test
         self.max_length = max_len
+        self.classes = ['cohesion', 'syntax', 'vocabulary', 'phraseology', 'grammar', 'conventions']
         self.texts = list(df['full_text'].values)
+        if not self.test:
+            self.labels = df.loc[:, self.classes].values.astype('float32') / 5.0
+
         self.tokenizer = tokenizer
 
     def __len__(self):
@@ -35,12 +37,13 @@ class EssayDataset:
         text = self.tokenizer.texts_to_sequences([text])[0]
         text = pad_sequences([text], maxlen=self.max_length, padding='pre', truncating='post')[0]
         text = torch.tensor(text, dtype=torch.long)
+
         if not self.test:
-            label_cols = ['cohesion', 'syntax', 'vocabulary', 'phraseology', 'grammar', 'conventions']
-            labels = df.loc[idx, label_cols].values / 5.
-            label = torch.tensor(labels, dtype=torch.float32)
+            label = torch.tensor(self.labels[idx], dtype=torch.float32)  # Use precomputed labels
             return text, label
+
         return text
+
 
 # sample_ds = EssayDataset(df,512,tokenizer)
 # sample_ds[0]
@@ -151,7 +154,7 @@ train_loader, val_loader = prepare_datasets(df)
 len(train_loader), len(val_loader)
 
 test_ds = EssayDataset(test,config['seq_len'],tokenizer,test=True)
-test_loader = DataLoader(test_ds, batch_size=1, num_workers=1, shuffle=False)
+test_loader = torch.utils.data.DataLoader(test_ds, batch_size=config['batch_size'], shuffle=True)
 
 _x,_y = next(iter(train_loader))
 _x.shape, _y.shape
@@ -159,21 +162,8 @@ _x.shape, _y.shape
 model = RNNModel(config['vocab'], config['embed_dim'], config['hidden_dim'], config['seq_len'],
                  config['n_layers'], config['output_dim'], config['lr'])
 
-# model.eval()
-# test_loss = model.val_step(test_loader)
-# print(f"Test Loss: {test_loss:.4f}")
-#
-# predictions = []
-# model.eval()
-# with torch.no_grad():
-#     for inputs in test_loader:
-#         outputs = model(inputs)
-#         predictions.append(outputs.squeeze().tolist())
-
-predictions =[]
 model.eval()
 test_loss = model.val_step(test_loader)
-
 if test_loss is not None:
     print(f"Test Loss: {test_loss:.4f}")
 else:
