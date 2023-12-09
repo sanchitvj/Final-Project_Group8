@@ -80,3 +80,17 @@ class Config:
             if isinstance(value, dict):
                 value = Config(value)
             setattr(self, key, value)
+
+
+def delete_model_file(file_path):
+    # Check if file exists
+    if os.path.exists(file_path):
+        # Delete the file
+        os.remove(file_path)
+        print(f"File '{file_path}' has been deleted.")
+    else:
+        print(f"The file '{file_path}' does not exist.")
+
+
+def round_to_half(number):
+    return round(number * 2) / 2

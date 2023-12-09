@@ -5,7 +5,7 @@ from torch.cuda.amp import GradScaler, autocast
 from torch.nn.utils import clip_grad_norm
 
 from utils import AverageMeter, load_from_saved, mcrmse_labelwise_score
-from dataset import collate_fn, collate
+from dataset import collate_fn
 
 
 def train_one_epoch(cfg, train_loader, model, criterion, optimizer, scheduler):
@@ -64,8 +64,6 @@ def validation(cfg, val_loader, model, criterion):
         predictions.append(preds.detach().cpu())  # preds.to('cpu').numpy())
         labels_.append(labels.detach().cpu())  # labels.to('cpu').numpy())
 
-    # predictions = np.concatenate(predictions)
-    # labels_ = np.concatenate(labels_)
     predictions = torch.cat(predictions).numpy()
     labels_ = torch.cat(labels_).numpy()
 

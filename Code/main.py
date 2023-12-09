@@ -16,9 +16,9 @@ from termcolor import colored
 from transformers import AutoConfig, AutoTokenizer
 from transformers import get_cosine_schedule_with_warmup
 
-from dataset import FeedbackDataset, collate, collate_fn
+from dataset import FeedbackDataset, collate_fn
 from model import CustomModel
-from utils import load_from_saved, mcrmse_labelwise_score, seed_torch, Config
+from utils import load_from_saved, mcrmse_labelwise_score, seed_torch, Config, delete_model_file
 from trainer import train_one_epoch, validation
 
 warnings.filterwarnings("ignore")
@@ -30,12 +30,12 @@ def main(cfg):
     print(colored("GPU Name: {}".format(torch.cuda.get_device_name(0)), "green"))
 
     seed_torch(cfg.seed)
-    df = pd.read_csv("train_df.csv")
+    df = pd.read_csv(cfg.dataset.data_path)
     train, valid = train_test_split(df, test_size=0.2, random_state=cfg.seed)
 
     wandb.login(key=cfg.logger.key)
     wandb.init(project=cfg.logger.project_name)
-    wandb.run.name = cfg.logger.run_name
+    wandb.run.name = cfg.model.backbone_name.split('/')[1] + '_' + cfg.model.pooling + '_' + str(cfg.training.epochs)
     if cfg.logger.save:
         wandb.run.save()
 
@@ -45,10 +45,10 @@ def main(cfg):
     tr_dataset = FeedbackDataset(cfg, train)
     vl_dataset = FeedbackDataset(cfg, valid)
 
-    train_loader = DataLoader(tr_dataset, batch_size=cfg.dataset.batch_size,
+    train_loader = DataLoader(tr_dataset, batch_size=cfg.dataset.tr_batch_size,
                               num_workers=cfg.dataset.num_workers, shuffle=True,
                               pin_memory=True, drop_last=True, collate_fn=collate_fn)
-    val_loader = DataLoader(vl_dataset, batch_size=cfg.dataset.batch_size,
+    val_loader = DataLoader(vl_dataset, batch_size=cfg.dataset.vl_batch_size,
                             num_workers=cfg.dataset.num_workers, shuffle=False,
                             pin_memory=True, drop_last=False, collate_fn=collate_fn)
 
@@ -85,6 +85,7 @@ def main(cfg):
         tqdm.write(
             f"Epoch {epoch}/{cfg.training.epochs} - Train Loss: {tr_loss:.3f}, Val Loss: {vl_loss:.4f}, Avg MCRMSE: {avg_mcrmse:.4f}")
 
+        prev_saved = []
         if avg_mcrmse < best_score:
             best_score = avg_mcrmse
             print(f"Checkpoint saved at best score: {best_score:.4f}")
@@ -93,11 +94,15 @@ def main(cfg):
                 os.makedirs('saved_checkpoints')
 
             filepath = os.path.join('saved_checkpoints',
-                                    f"{cfg.model.backbone_name.split('/')[0]}_{epoch}_{best_score:.4f}.pth")
+                                    f"{cfg.model.backbone_name.split('/')[1]}_{cfg.model.pooling}_{epoch}_{best_score:.4f}.pth")
             torch.save({'model': model.state_dict(),
                         'optimizer': optimizer.step(),
                         'scheduler': scheduler.state_dict(),
                         'epoch': epoch}, filepath)
+            if len(prev_saved) > 0:
+                delete_model_file(prev_saved[0])
+                prev_saved.pop(0)
+            prev_saved.append(filepath)
 
         wandb.log({f"Epoch": epoch,
                    f"avg_train_loss": tr_loss,
@@ -114,9 +119,6 @@ def main(cfg):
 
 
 if __name__ == "__main__":
-
-    # with open("config.yaml", 'r') as yaml_file:
-    #     cfg = yaml.safe_load(yaml_file)
 
     try:
         with open("config.yaml", 'r') as yaml_file:

@@ -8,14 +8,6 @@ import tokenizers
 import transformers
 from transformers import AutoTokenizer, AutoModel, AutoConfig
 
-print(f"tokenizers.__version__: {tokenizers.__version__}")
-print(f"transformers.__version__: {transformers.__version__}")
-
-
-# tokenizer = AutoTokenizer.from_pretrained("microsoft/deberta-v3-base")
-# encoded_input = tokenizer("Tokenization is essential.")
-# print(encoded_input)
-
 
 class FeedbackDataset(Dataset):
 
