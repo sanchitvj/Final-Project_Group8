@@ -33,8 +33,9 @@ with open("test_config.yaml", 'r') as yaml_file:
     cfg = Config(cfg_dict)
 
 # Model selection
-model_options = ['deberta-v3-base', 'deberta-v3-large', 'bert-base-uncased', 'electra-base-discriminator']  # , 'Model 2', 'Model 3']
-pooling_options = ['mean', 'lstm', 'concat', 'conv1d']  # , 'Attention Pooling']
+model_options = ['bert-base-uncased', 'electra-base-discriminator',
+                 'roberta-large', 'deberta-v3-base', 'deberta-v3-large', ]
+pooling_options = ['mean', 'lstm', 'concat', 'conv1d']
 
 selected_model = st.selectbox("Select model", ['Select model'] + model_options)
 
