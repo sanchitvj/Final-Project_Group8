@@ -76,8 +76,6 @@ class RNNModel(pl.LightningModule):
 
         self.test_preds = []
 
-    #         self.loss_fn = nn.CrossEntropyLoss()
-
     def forward(self, x):
         x = self.embedding(x)
         x, (h, c) = self.lstm(x)
@@ -176,6 +174,7 @@ model = RNNModel(config)
 
 
 trainer = pl.Trainer(accelerator='gpu',
+                     devices = 1,
                      callbacks=[
                          EarlyStopping(monitor="val_loss",
                                        mode="min",
