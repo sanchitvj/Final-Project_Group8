@@ -76,6 +76,8 @@ class RNNModel(pl.LightningModule):
 
         self.test_preds = []
 
+    #         self.loss_fn = nn.CrossEntropyLoss()
+
     def forward(self, x):
         x = self.embedding(x)
         x, (h, c) = self.lstm(x)
@@ -87,45 +89,49 @@ class RNNModel(pl.LightningModule):
         colwise_mse = torch.mean(torch.square(targets - outputs), dim=0)
         loss = torch.mean(torch.sqrt(colwise_mse), dim=0)
         return loss
+
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)
         #         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3,gamma=0.1)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=20, eta_min=1e-6)
-        return optimizer, scheduler
+        return [optimizer], [scheduler]
 
-def mcrmse_labelwise_score(true_values, predicted_values):
-    individual_scores = []
+    def training_step(self, batch, batch_idx):
+        x, y = batch
+        outputs = self(x)
 
-    num_targets = true_values.shape[1]
+        loss = self.loss_fn(outputs, y)
 
-    for target_index in range(num_targets):
-        true_target = true_values[:, target_index]
+        self.log('train_loss', loss.item(), on_epoch=True)
 
-        predicted_target = predicted_values[:, target_index]
+        return loss
 
-        mse_score = mean_squared_error(true_target, predicted_target, squared=False)
+    def calculate_mcrmse(self, outputs, y):
+            mse_per_col = torch.mean((outputs - y) ** 2, dim=0)
+            mcrmse = torch.sqrt(mse_per_col).mean()  # Mean across columns
+            return mcrmse
 
-        individual_scores.append(mse_score)
+    def validation_step(self, batch, batch_idx):
+            x, y = batch
 
-    average_mcrmse = np.mean(individual_scores)
+            outputs = self(x)
+            loss = self.loss_fn(outputs, y)
 
-    return average_mcrmse, individual_scores
+            mcrmse_batch = self.calculate_mcrmse(outputs, y)
+            self.log('val_loss', loss.item(), on_epoch=True)
+            self.log('val_mcrmse_batch', mcrmse_batch.item())  # Logging per batch MCRMSE
 
-def training_step(model, batch, batch_idx):
-    x, y = batch
-    outputs = model(x)
-    loss = model.loss_fn(outputs, y)
-    model.log('train_loss', loss.item(), on_epoch=True)
-    return loss
+            return {'val_loss': loss, 'val_mcrmse_batch': mcrmse_batch}
 
-def validation_step(model, batch, batch_idx):
-    x, y = batch
-    outputs = model(x)
-    loss = model.loss_fn(outputs, y)
-    mcrmse, _ = mcrmse_labelwise_score(y.cpu().numpy(), outputs.detach().cpu().numpy())
-    model.log('val_loss', loss.item(), on_epoch=True)
-    model.log('val_mcrmse', mcrmse, on_epoch=True)
+    def validation_epoch_end(self, outputs):
+        avg_mcrmse = torch.stack([x['val_mcrmse_batch'] for x in outputs]).mean()
+        self.log('val_mcrmse_avg', avg_mcrmse.item(), on_epoch=True)
 
+        if self.trainer.current_epoch == self.trainer.max_epochs - 1:
+            filename = f'rnn_model_epoch_{self.trainer.current_epoch}_val_mcrmse_{avg_mcrmse:.4f}.pth'
+            torch.save({'model': self.state_dict()}, filename)
+    def get_predictions(self):
+        return torch.cat(self.test_preds).numpy()
 
 
 score_cols = ['cohesion', 'syntax', 'vocabulary', 'phraseology', 'grammar', 'conventions']
@@ -144,7 +150,6 @@ config = {
     'seed': 1357,
     'model_name': 'lstm-embeddings'
 }
-
 
 def prepare_datasets(df, test_size=0.2):
     train_df, val_df = train_test_split(df,
@@ -168,37 +173,14 @@ train_loader, val_loader = prepare_datasets(df)
 len(train_loader), len(val_loader)
 
 model = RNNModel(config)
-trainer = pl.Trainer(
-    accelerator='gpu',
-    callbacks=[
-        EarlyStopping(
-            monitor="val_loss",
-            mode="min",
-            patience=5,
-            verbose=True
-        )
-    ],
-    max_epochs=config['epochs']
-)
 
-for epoch in range(config['epochs']):
-    model.train()
-    optimizer, scheduler = model.configure_optimizers()
 
-    for batch in train_loader:
-        loss = training_step(model, batch, epoch)
-        loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
-
-    model.eval()
-    val_losses = []
-    for batch in val_loader:
-        loss = validation_step(model, batch, epoch)
-        val_losses.append(loss)
-
-    avg_val_loss = torch.mean(torch.tensor(val_losses))
-    if avg_val_loss < best_val_loss:
-        best_val_loss = avg_val_loss
-        torch.save({'model': model.state_dict()}, f'rnn_model_{avg_val_loss:.4f}.pth')
-
+trainer = pl.Trainer(accelerator='gpu',
+                     callbacks=[
+                         EarlyStopping(monitor="val_loss",
+                                       mode="min",
+                                       patience=5,
+                                      )
+                     ],
+                     max_epochs = config['epochs']
+                    )

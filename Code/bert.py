@@ -72,33 +72,6 @@ class FeedbackModel(nn.Module):
         return final_layer
 
 
-class RNNModel(nn.Module):
-    def __init__(self, vocab_size, embed_dim, hidden_dim):
-        super().__init__()
-        self.embedding = nn.Embedding(vocab_size, embed_dim)
-        self.rnn = nn.GRU(embed_dim, hidden_dim, batch_first=True)
-        self.fc = nn.Linear(hidden_dim, 6)
-
-    def forward(self, text):
-        # text should be tokenized
-        embedded = self.embedding(text)
-        output, hidden = self.rnn(embedded)
-
-        # use final hidden state as feature for classifier
-        predictions = self.fc(hidden.squeeze(0))
-        return predictions
-
-class LogisticRegressionModel:
-
-    def __init__(self):
-        self.model = LogisticRegression()
-
-    def fit(self, X_train, y_train):
-        self.model.fit(X_train, y_train)
-
-    def predict(self, X_test):
-        return self.model.predict(X_test)
-
 
 def mcrmse_labelwise_score(true_values, predicted_values):
     individual_scores = []
@@ -117,6 +90,7 @@ def mcrmse_labelwise_score(true_values, predicted_values):
     average_mcrmse = np.mean(individual_scores)
 
     return average_mcrmse, individual_scores
+
 
 def train(model, train_data, val_data, epochs, device, criterion):
     train_set = Dataset(train_data)
