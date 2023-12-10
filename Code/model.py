@@ -49,7 +49,7 @@ class LSTMPooling(nn.Module):
         self.dropout = nn.Dropout(self.dropout_rate)
 
     def forward(self, inputs, backbone_outputs):
-        if self.cfg.model.backbone_name == 'bert-base-uncased':
+        if self.cfg.model.backbone_name == 'bert-base-uncased' or self.cfg.model.backbone_name == 'roberta-large':
             all_hidden_states = torch.stack(backbone_outputs[2])
         else:
             all_hidden_states = torch.stack(backbone_outputs[1])  # ????????????????????????????????????
@@ -65,18 +65,69 @@ class LSTMPooling(nn.Module):
 
 
 class ConcatPooling(nn.Module):
-    def __init__(self, backbone_config, pooling_config):
+    def __init__(self, cfg, backbone_config, pooling_config):
         super(ConcatPooling, self, ).__init__()
-
+        self.cfg = cfg
         self.n_layers = pooling_config.n_layers
         self.output_dim = backbone_config.hidden_size*pooling_config.n_layers
 
     def forward(self, inputs, backbone_outputs):
-        all_hidden_states = get_all_hidden_states(backbone_outputs)
+        if self.cfg.model.backbone_name == 'bert-base-uncased' or self.cfg.model.backbone_name == 'roberta-large':
+            all_hidden_states = torch.stack(backbone_outputs[2])
+        else:
+            all_hidden_states = torch.stack(backbone_outputs[1])
 
         concatenate_pooling = torch.cat([all_hidden_states[-(i + 1)] for i in range(self.n_layers)], -1)
         concatenate_pooling = concatenate_pooling[:, 0]
         return concatenate_pooling
+
+
+class Conv1DPooling(nn.Module):
+    def __init__(self, cfg, backbone_config):
+        super(Conv1DPooling, self).__init__()
+        self.hidden_size = backbone_config.hidden_size
+        self.conv1d = nn.Conv1d(in_channels=self.hidden_size,
+                                out_channels=cfg.model.conv1d_params.num_filters,
+                                kernel_size=cfg.model.conv1d_params.kernel_size)
+        self.relu = nn.ReLU()
+        self.adaptive_pool = nn.AdaptiveMaxPool1d(1)
+        self.output_dim = cfg.model.conv1d_params.num_filters
+
+    def forward(self, inputs, backbone_outputs):
+        # if isinstance(hidden_states, BaseModelOutputWithPastAndCrossAttentions):
+        #     hidden_states = hidden_states.last_hidden_state
+        # hidden_states shape: (batch_size, sequence_length, hidden_size)
+        # Conv1D expects input shape: (batch_size, in_channels, sequence_length)
+        # hidden_states = hidden_states.permute(0, 2, 1)
+        hidden_states = backbone_outputs[0]
+        hidden_states = hidden_states.permute(0, 2, 1)
+        x = self.conv1d(hidden_states)
+        x = self.relu(x)
+        x = self.adaptive_pool(x)
+        x = x.squeeze(-1)
+        return x
+
+# class Conv1DPooling(nn.Module):
+#     def __init__(self, cfg, backbone_config):
+#         super(Conv1DPooling, self).__init__()
+#         self.cnn1 = nn.Conv1d(768, 256, kernel_size=2, padding=1)
+#         self.cnn2 = nn.Conv1d(256, 1, kernel_size=2, padding=1)
+#
+#     def forward(self, inputs, hidden_states):
+#         # hidden_states shape expected: (batch_size, sequence_length, hidden_size)
+#         # Permute to match Conv1d input shape: (batch_size, hidden_size, sequence_length)
+#         hidden_states = hidden_states.permute(0, 2, 1)
+#
+#         # Apply first Conv1D layer with ReLU activation
+#         cnn_embeddings = F.relu(self.cnn1(hidden_states))
+#
+#         # Apply second Conv1D layer
+#         cnn_embeddings = self.cnn2(cnn_embeddings)
+#
+#         # Apply max pooling
+#         logits, _ = torch.max(cnn_embeddings, 2)
+#
+#         return logits
 
 
 class CustomModel(nn.Module):
@@ -95,7 +146,9 @@ class CustomModel(nn.Module):
         if cfg.model.pooling == 'mean':
             self.pooling_layer = MeanPooling(backbone_config)
         elif cfg.model.pooling == 'concat':
-            self.pooling_layer = ConcatPooling(backbone_config, cfg.model.concat_params)
+            self.pooling_layer = ConcatPooling(cfg, backbone_config, cfg.model.concat_params)
+        elif cfg.model.pooling == 'conv1d':
+            self.pooling_layer = Conv1DPooling(cfg, backbone_config)
         else:
             self.pooling_layer = LSTMPooling(cfg, backbone_config, cfg.model.lstm_params)
 

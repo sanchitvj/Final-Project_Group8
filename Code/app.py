@@ -33,10 +33,8 @@ with open("test_config.yaml", 'r') as yaml_file:
     cfg = Config(cfg_dict)
 
 # Model selection
-# model_names = ['deberta_base_meanpooling', 'deberta_base_lstmpooling']  # Replace with your actual model names
-# selected_model_name = st.selectbox("Select a Model", model_names)
-model_options = ['deberta-v3-base']  # , 'Model 2', 'Model 3']
-pooling_options = ['mean', 'lstm']  # , 'Attention Pooling']
+model_options = ['deberta-v3-base', 'deberta-v3-large', 'bert-base-uncased', 'electra-base-discriminator']  # , 'Model 2', 'Model 3']
+pooling_options = ['mean', 'lstm', 'concat', 'conv1d']  # , 'Attention Pooling']
 
 selected_model = st.selectbox("Select model", ['Select model'] + model_options)
 
@@ -54,7 +52,21 @@ if selected_model != 'Select model':
             st.session_state['selected_pooling'] = selected_pooling
             st.session_state['proceed_to_text_input'] = True
 
-        cfg.model.pooling = 'lstm' if pooling_options == 'lstm' else 'mean'
+        if pooling_options == 'lstm':
+            cfg.model.pooling = selected_pooling
+        elif pooling_options == 'concat':
+            cfg.model.pooling = selected_pooling
+        elif pooling_options == 'conv1d':
+            cfg.model.pooling = selected_pooling
+        else:
+            cfg.model.pooling = selected_pooling
+
+        if selected_model == 'bert-base-uncased':
+            cfg.model.backbone_name = 'bert-base-uncased'
+        elif selected_model == 'deberta-v3-base' or selected_model == 'deberta-v3-large':
+            cfg.model.backbone_name = 'microsoft/' + selected_model
+        elif selected_model == 'electra-base-discriminator':
+            cfg.model.backbone_name = 'google/' + selected_model
         tokenizer = AutoTokenizer.from_pretrained(cfg.model.backbone_name)
         cfg.tokenizer = tokenizer
         model = load_model(cfg, ckp_path)
@@ -69,14 +81,11 @@ if st.session_state.get('proceed_to_text_input', False):
     if st.button("Analyze Text"):
         # st.write(f"Model: {st.session_state['selected_model']}")
         # st.write(f"Pooling: {st.session_state['selected_pooling']}")
-        # if user_input:
         predictions = make_prediction(cfg, model, user_input)
-        predictions = [round_to_half(num) for num in predictions]
+        predictions = [round(round_to_half(num), 1) for num in predictions]
         # Display predictions
         st.write("Predicted :")
         labels = ['cohesion', 'syntax', 'vocabulary', 'phraseology', 'grammar', 'conventions']
-        # for label, score in zip(labels, predictions):
-        #     st.write(f"{label}: {score:.1f}")
         data = {
             'Labels': labels,
             'Scores': predictions

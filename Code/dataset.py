@@ -28,9 +28,12 @@ class FeedbackDataset(Dataset):
 
         inputs = {
             "input_ids": torch.tensor(tokenization['input_ids'], dtype=torch.long),
-            "token_type_ids": torch.tensor(tokenization['token_type_ids'], dtype=torch.long),
+            # "token_type_ids": torch.tensor(tokenization['token_type_ids'], dtype=torch.long),
             "attention_mask": torch.tensor(tokenization['attention_mask'], dtype=torch.long)
         }
+
+        if 'token_type_ids' in tokenization:
+            inputs['token_type_ids'] = torch.tensor(tokenization['token_type_ids'], dtype=torch.long)
 
         if self.test:
             return inputs
@@ -54,9 +57,12 @@ def collate_fn(batch):
     # Pad and batch input
     batched_input = {
         'input_ids': pad_sequence([x['input_ids'] for x in inputs], batch_first=True, padding_value=0),
-        'token_type_ids': pad_sequence([x['token_type_ids'] for x in inputs], batch_first=True, padding_value=0),
+        # 'token_type_ids': pad_sequence([x['token_type_ids'] for x in inputs], batch_first=True, padding_value=0),
         'attention_mask': pad_sequence([x['attention_mask'] for x in inputs], batch_first=True, padding_value=0)
     }
+
+    if 'token_type_ids' in inputs:
+        inputs['token_type_ids'] = pad_sequence([x['token_type_ids'] for x in inputs], batch_first=True, padding_value=0)
 
     # Check if targets are available
     if len(targets) > 0:

@@ -13,16 +13,16 @@ logger:
 dataset:
   data_path: 'train_df.csv'
   num_workers: 8
-  tr_batch_size: 32  # base->8, large->2, bert->32, google->32
-  vl_batch_size: 64  # base->32, large->8, bert->64, google->64
+  tr_batch_size: 12  # base->12, large->2, bert->32, google->32, roberta->12
+  vl_batch_size: 32  # base->32, large->8, bert->64, google->64, roberta->32
   max_len: 512  # 512  768  1024
   labels: ['cohesion', 'syntax', 'vocabulary', 'phraseology', 'grammar', 'conventions']
 
 model:
-  backbone_name: 'google/electra-base-discriminator'  # 'microsoft/deberta-v3-base'  'roberta-large'
+  backbone_name: 'roberta-large'  # 'microsoft/deberta-v3-base'  'roberta-large'
                    #  'google/electra-base-discriminator'  'bert-base-uncased'
   gradient_checkpointing: True
-  pooling: 'concat'  # 'lstm'  'mean'  'concat'
+  pooling: 'mean'  # 'lstm'  'mean'  'concat'  'conv1d'
   saved_model_path: ''
 
   lstm_params:
@@ -32,6 +32,10 @@ model:
 
   concat_params:
     n_layers: 4
+
+  conv1d_params:
+    num_filters: 128
+    kernel_size: 3
 
 training:
   epochs: 10
