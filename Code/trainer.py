@@ -30,7 +30,7 @@ def train_one_epoch(cfg, train_loader, model, criterion, optimizer, scheduler):
         losses.update(loss.item(), batch_size)
         scaler.scale(loss).backward()
 
-        scaler.unscale_(optimizer)  # Reverses the Scaling of Gradients, Allows for Gradient Clipping and Other Operations
+        # scaler.unscale_(optimizer)  # Reverses the Scaling of Gradients, Allows for Gradient Clipping and Other Operations
         clip_grad_norm(model.parameters(), cfg.training.max_grad_norm)
 
         scaler.step(optimizer)

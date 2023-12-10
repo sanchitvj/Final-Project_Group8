@@ -22,12 +22,17 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
-# def make_folds(df, target_cols, n_splits, random_state):
-#     kfold = MultilabelStratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
-#     for n, (train_index, val_index) in enumerate(kfold.split(df, df[target_cols])):
-#         df.loc[val_index, 'fold'] = int(n)
-#     df['fold'] = df['fold'].astype(int)
-#     return df
+def get_optimizer_params(model, encoder_lr, decoder_lr, weight_decay=0.0):
+    no_decay = ["bias", "LayerNorm.bias", "LayerNorm.weight"]
+    optimizer_parameters = [
+        {'params': [p for n, p in model.backbone.named_parameters() if not any(nd in n for nd in no_decay)],
+         'lr': encoder_lr, 'weight_decay': weight_decay},
+        {'params': [p for n, p in model.backbone.named_parameters() if any(nd in n for nd in no_decay)],
+         'lr': encoder_lr, 'weight_decay': 0.0},
+        {'params': [p for n, p in model.named_parameters() if "backbone" not in n],
+         'lr': decoder_lr, 'weight_decay': 0.0}
+    ]
+    return optimizer_parameters
 
 
 def load_from_saved(model, optimizer, scheduler, checkpoint_path):

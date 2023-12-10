@@ -30,9 +30,9 @@ class MeanPooling(nn.Module):
 
 
 class LSTMPooling(nn.Module):
-    def __init__(self, backbone_config, pooling_config):
+    def __init__(self, cfg, backbone_config, pooling_config):
         super(LSTMPooling, self).__init__()
-
+        self.cfg = cfg
         self.num_hidden_layers = backbone_config.num_hidden_layers
         self.hidden_size = backbone_config.hidden_size
         self.hidden_lstm_size = pooling_config.hidden_size
@@ -49,7 +49,10 @@ class LSTMPooling(nn.Module):
         self.dropout = nn.Dropout(self.dropout_rate)
 
     def forward(self, inputs, backbone_outputs):
-        all_hidden_states = torch.stack(backbone_outputs[1])  # ????????????????????????????????????
+        if self.cfg.model.backbone_name == 'bert-base-uncased':
+            all_hidden_states = torch.stack(backbone_outputs[2])
+        else:
+            all_hidden_states = torch.stack(backbone_outputs[1])  # ????????????????????????????????????
 
         # take only [CLS] token into account; it is 1st token aggregating all the info from entire sequence
         hidden_states = torch.stack([all_hidden_states[layer_i][:, 0].squeeze()
@@ -59,6 +62,21 @@ class LSTMPooling(nn.Module):
         out, _ = self.lstm(hidden_states, None)
         out = self.dropout(out[:, -1, :])
         return out
+
+
+class ConcatPooling(nn.Module):
+    def __init__(self, backbone_config, pooling_config):
+        super(ConcatPooling, self, ).__init__()
+
+        self.n_layers = pooling_config.n_layers
+        self.output_dim = backbone_config.hidden_size*pooling_config.n_layers
+
+    def forward(self, inputs, backbone_outputs):
+        all_hidden_states = get_all_hidden_states(backbone_outputs)
+
+        concatenate_pooling = torch.cat([all_hidden_states[-(i + 1)] for i in range(self.n_layers)], -1)
+        concatenate_pooling = concatenate_pooling[:, 0]
+        return concatenate_pooling
 
 
 class CustomModel(nn.Module):
@@ -76,8 +94,10 @@ class CustomModel(nn.Module):
         # Define a pooling layer and a fully connected layer
         if cfg.model.pooling == 'mean':
             self.pooling_layer = MeanPooling(backbone_config)
+        elif cfg.model.pooling == 'concat':
+            self.pooling_layer = ConcatPooling(backbone_config, cfg.model.concat_params)
         else:
-            self.pooling_layer = LSTMPooling(backbone_config, cfg.model.lstm_params)
+            self.pooling_layer = LSTMPooling(cfg, backbone_config, cfg.model.lstm_params)
 
         self.classifier = nn.Linear(self.pooling_layer.output_dim, len(self.cfg.dataset.labels))
 
