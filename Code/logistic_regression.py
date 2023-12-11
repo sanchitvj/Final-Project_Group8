@@ -19,9 +19,9 @@ from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import cross_val_score
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import cross_val_predict
 from sklearn.metrics import precision_recall_curve
 from sklearn.metrics import classification_report
+from sklearn.model_selection import cross_val_predict
 
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
@@ -38,17 +38,17 @@ def remove_noise(text):
     # Remove whitespaces
     text = text.apply(lambda x: " ".join(x.strip() for x in x.split()))
 
-    #     # Remove special characters
-    #     text = text.apply(lambda x: "".join([" " if ord(i) < 32 or ord(i) > 126 else i for i in x]))
-
-    #     # Remove punctuation
-    #     text = text.str.replace('[^\w\s]', '')
+    # # Remove special characters
+    # text = text.apply(lambda x: "".join([" " if ord(i) < 32 or ord(i) > 126 else i for i in x]))
+    #
+    # # Remove punctuation
+    # text = text.str.replace('[^\w\s]', '')
 
     # Remove numbers
     text = text.str.replace('\d+', '')
 
-    #     # Remove Stopwords
-    #     text = text.apply(lambda x: ' '.join([word for word in x.split() if word not in (STOPWORDS)]))
+    # # Remove Stopwords
+    # text = text.apply(lambda x: ' '.join([word for word in x.split() if word not in (STOPWORDS)]))
 
     # Convert to string
     text = text.astype(str)
@@ -119,7 +119,6 @@ for score in scList:
     modelRes(model, score, X_train, y_train, X_test, y_test)
 
 #%%
-from sklearn.metrics import accuracy_score, f1_score
 
 test = pd.read_csv("test_df.csv")
 test['filtered_text'] = remove_noise(test['full_text'])
@@ -128,8 +127,7 @@ test_seq = tokenizer.texts_to_sequences(test['filtered_text'])
 pad_test = pad_sequences(test_seq, maxlen=max_words, truncating='post')
 
 submission = pd.DataFrame()
-accuracy_scores = {}
-f1_scores = {}
+
 
 submission['text_id'] = test['text_id'].copy()
 
@@ -137,14 +135,5 @@ for score in scList:
     y = df[score].replace([1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0], [0, 1, 2, 3, 4, 5, 6, 7, 8])
     model = LogisticRegression()
     model.fit(pad_train, y)
-    train_predictions = model.predict(pad_train)
-    accuracy = accuracy_score(y, train_predictions)
-    accuracy_scores[score] = accuracy
-    # Calculate F1 score
-    f1 = f1_score(y, train_predictions, average='macro')  # You can specify the averaging method
-    f1_scores[score] = f1
-
-    print(f"{score} - Accuracy: {accuracy}, F1 Score: {f1}")
-
+    print(score, model.score(pad_train, y))
     submission[score] = model.predict(pad_test).tolist()
-
