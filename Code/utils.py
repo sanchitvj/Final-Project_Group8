@@ -1,5 +1,6 @@
 import random
 import os
+import math
 import numpy as np
 import torch
 from sklearn.metrics import mean_squared_error
@@ -22,6 +23,40 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
+def get_differential_lr_parameters(model, encoder_lr, decoder_lr, embeddings_lr, lr_mult_factor, weight_decay, num_groups):
+    # def create_layer_groups(num_layers, num_groups):
+    num_layers = model.backbone_config.num_hidden_layers
+    step = math.ceil(num_layers / num_groups)
+    layer_groups = []
+    for start in range(0, num_layers, step):
+        end = min(start + step, num_layers)
+        group = [f'backbone.encoder.layer.{num_layers - i - 1}.' for i in range(start, end)]
+        layer_groups.append(group)
+        # return layer_groups
+
+    opt_parameters = []
+    named_parameters = list(model.named_parameters())
+    no_decay = {"bias", "LayerNorm.bias", "LayerNorm.weight"}
+    # layer_groups = create_layer_groups(n_layers, n_groups)
+
+    for name, params in named_parameters:
+        wd = 0.0 if any(nd in name for nd in no_decay) else weight_decay
+        lr = None
+
+        if name.startswith("backbone.encoder"):
+            lr = next((encoder_lr * (lr_mult_factor ** (i + 1)) for i, group in enumerate(layer_groups) if any(layer in name for layer in group)), encoder_lr)
+        elif name.startswith("backbone.embeddings"):
+            lr = embeddings_lr
+        elif name.startswith("fc") or name.startswith('backbone.pooler'):
+            lr = decoder_lr
+
+        if lr is not None:
+            opt_parameters.append({"params": params, "weight_decay": wd, "lr": lr})
+
+    return opt_parameters
+
+
+# https://www.kaggle.com/code/nischaydnk/fb3-pytorch-lightning-training-baseline
 def get_optimizer_params(model, encoder_lr, decoder_lr, weight_decay=0.0):
     no_decay = ["bias", "LayerNorm.bias", "LayerNorm.weight"]
     optimizer_parameters = [
@@ -35,7 +70,7 @@ def get_optimizer_params(model, encoder_lr, decoder_lr, weight_decay=0.0):
     return optimizer_parameters
 
 
-def load_from_saved(model, optimizer, scheduler, checkpoint_path):
+def load_from_saved(model, checkpoint_path, optimizer=None, scheduler=None):
     state = torch.load(checkpoint_path, map_location='cuda')  # 'cpu'
     if 'model.embeddings.position_ids' in state['model'].keys():
         new_state = {}
@@ -46,13 +81,16 @@ def load_from_saved(model, optimizer, scheduler, checkpoint_path):
                 new_key = key.replace('model', 'backbone')
             new_state[new_key] = value
 
-        updated = {'model': new_state}
+        state['model'] = new_state
 
-    model.load_state_dict(updated['model'])
-    optimizer.load_state_dict(state['optimizer'])
-    scheduler.load_state_dict(state['scheduler'])
+    model.load_state_dict(state['model'])
+    if optimizer and scheduler is not None:
+        optimizer.load_state_dict(state['optimizer'])
+        scheduler.load_state_dict(state['scheduler'])
 
-    return model, optimizer, scheduler, state['epoch']
+        return model, optimizer, scheduler, state['epoch']
+
+    return model, state['epoch']
 
 
 def mcrmse_labelwise_score(true_values, predicted_values):

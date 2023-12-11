@@ -32,6 +32,7 @@ class FeedbackDataset(Dataset):
             "attention_mask": torch.tensor(tokenization['attention_mask'], dtype=torch.long)
         }
 
+        # for roberta
         if 'token_type_ids' in tokenization:
             inputs['token_type_ids'] = torch.tensor(tokenization['token_type_ids'], dtype=torch.long)
 

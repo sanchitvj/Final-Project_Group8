@@ -19,7 +19,7 @@ from transformers import get_cosine_schedule_with_warmup
 from dataset import FeedbackDataset, collate_fn
 from model import CustomModel
 from utils import load_from_saved, mcrmse_labelwise_score, seed_torch, Config, \
-    delete_model_file, get_optimizer_params
+    delete_model_file, get_optimizer_params, get_differential_lr_parameters
 from trainer import train_one_epoch, validation
 
 warnings.filterwarnings("ignore")
@@ -31,7 +31,7 @@ def main(cfg):
 
     seed_torch(cfg.seed)
     df = pd.read_csv(cfg.dataset.data_path)
-    train, valid = train_test_split(df, test_size=0.6, random_state=cfg.seed)
+    train, valid = train_test_split(df, test_size=0.05, random_state=cfg.seed)
 
     wandb.login(key=cfg.logger.key)
     wandb.init(project=cfg.logger.project_name)
@@ -61,8 +61,11 @@ def main(cfg):
             "green",
         )
     )
-    opt_params = get_optimizer_params(model, float(cfg.training.encoder_lr),
-                                      float(cfg.training.decoder_lr), float(cfg.training.weight_decay))
+    # opt_params = get_optimizer_params(model, float(cfg.training.encoder_lr),
+    #                                   float(cfg.training.decoder_lr), float(cfg.training.weight_decay))
+    opt_params = get_differential_lr_parameters(model, float(cfg.training.encoder_lr), float(cfg.training.decoder_lr),
+                                                float(cfg.training.embeddings_lr), 0.95, float(cfg.training.weight_decay),
+                                                num_groups=4)
     optimizer = Adam(opt_params, lr=float(cfg.training.encoder_lr),
                      betas=tuple(float(beta) for beta in cfg.training.betas),
                      eps=float(cfg.training.eps), weight_decay=float(cfg.training.weight_decay))
@@ -75,7 +78,7 @@ def main(cfg):
     if cfg.resume_train or cfg.fine_tuning:
         # model, optimizer, scheduler, last_epoch = load_from_saved(model, optimizer, scheduler,
         #                                                           cfg.model.saved_model_path)
-        model, last_epoch = load_from_saved(model, cfg.model.saved_model_path)
+        model, _ = load_from_saved(model, cfg.model.saved_model_path)
         print(f">>>> Checkpoint loaded from epoch {last_epoch} <<<<")
 
     model.to(cfg.device)
@@ -83,7 +86,7 @@ def main(cfg):
     best_score = np.inf
     prev_saved = []
 
-    for epoch in range(last_epoch + 1, cfg.training.epochs):
+    for epoch in range(last_epoch + 1, cfg.training.epochs + 1):
 
         tr_loss = train_one_epoch(cfg, train_loader, model, criterion, optimizer, scheduler)
         vl_loss, avg_mcrmse, individual_scores = validation(cfg, val_loader, model, criterion)
@@ -126,7 +129,7 @@ def main(cfg):
 if __name__ == "__main__":
 
     try:
-        with open("config.yaml", 'r') as yaml_file:
+        with open("ft_config.yaml", 'r') as yaml_file:
             cfg_dict = yaml.safe_load(yaml_file)
             cfg = Config(cfg_dict)
     except FileNotFoundError:
