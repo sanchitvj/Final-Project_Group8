@@ -12,7 +12,7 @@ logger:
   save: False
 
 dataset:
-  data_path: 'train.csv'
+  data_path: 'train_df.csv'
   num_workers: 8
   tr_batch_size: 12  # base->12, large->2, bert->32, google->32, roberta->12
   vl_batch_size: 32  # base->32, large->8, bert->64, google->64, roberta->32
