@@ -8,7 +8,7 @@ fine_tuning: False
 
 logger:
   project_name: 'feedback'
-  key: 'd5d895d7e20cad280f1c9663b87cc40aa7eeb73b'
+  key: ''  # removed it
   save: False
 
 dataset:
