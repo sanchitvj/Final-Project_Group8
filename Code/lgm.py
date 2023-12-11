@@ -1,56 +1,150 @@
-import pickle
-import torch
-import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.linear_model import LogisticRegression
 import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+# %matplotlib inline
+import re
+from wordcloud import WordCloud
+from wordcloud import STOPWORDS
 
+import nltk
+nltk.download('wordnet')
+
+from textblob import TextBlob
+from sklearn.feature_extraction import text
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import TfidfTransformer
+
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import cross_val_score
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import cross_val_predict
+from sklearn.metrics import precision_recall_curve
+from sklearn.metrics import classification_report
+
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 
 df = pd.read_csv("train_df.csv")
 
-df["text"] = df["full_text"].apply(lambda x: x.lower())
 
-X = df["text"]
-y = df[["cohesion", "syntax", "vocabulary", "phraseology", "grammar", "conventions"]]
+# Basic text cleaning function
+def remove_noise(text):
+    # Make lowercase
+    text = text.apply(lambda x: " ".join(x.lower() for x in x.split()))
+
+    # Remove whitespaces
+    text = text.apply(lambda x: " ".join(x.strip() for x in x.split()))
+
+    #     # Remove special characters
+    #     text = text.apply(lambda x: "".join([" " if ord(i) < 32 or ord(i) > 126 else i for i in x]))
+
+    #     # Remove punctuation
+    #     text = text.str.replace('[^\w\s]', '')
+
+    # Remove numbers
+    text = text.str.replace('\d+', '')
+
+    #     # Remove Stopwords
+    #     text = text.apply(lambda x: ' '.join([word for word in x.split() if word not in (STOPWORDS)]))
+
+    # Convert to string
+    text = text.astype(str)
+
+    return text
+
+df['filtered_text'] = remove_noise(df['full_text'])
+df['text_len'] = df['full_text'].apply(lambda x: len(x))
+df['words_num'] = df['full_text'].apply(lambda x: len(x.split()))
 
 
-vectorizer = TfidfVectorizer()
-X_vec = vectorizer.fit_transform(X)
+# def sentiment_analyser(text):
+#     return text.apply(lambda Text: pd.Series(TextBlob(Text).sentiment.polarity))
+#
+# # Applying function to reviews
+# df['polarity'] = sentiment_analyser(df['filtered_text'])
+#
+# # Length of full_text and words num
+# fig, ax = plt.subplots(2, 2, figsize=(15, 8))
+# sns.boxplot(df['text_len'], palette='PRGn', ax = ax[0, 0])
+# sns.histplot(df['text_len'], ax = ax[1, 0])
+# sns.boxplot(df['words_num'], palette='PRGn', ax = ax[0, 1])
+# sns.histplot(df['words_num'], ax = ax[1, 1])
+#
+#
+# text = " ".join(i for i in df['filtered_text'])
+# stopwords = set(STOPWORDS)
+# wordcloud = WordCloud(stopwords=stopwords, background_color="white").generate(text)
+# plt.figure( figsize=(15,10))
+# plt.imshow(wordcloud, interpolation='bilinear')
+# plt.axis("off")
+# plt.show()
 
 
-X_train, X_val, y_train, y_val = train_test_split(X_vec, y, test_size=0.2)
+#%%
+def modelRes(mod, y_name, x_train, y_train, x_test, y_test):
+    mod.fit(x_train, y_train)
+    print(y_name)
+    acc = cross_val_score(mod, x_train, y_train, scoring = "accuracy", cv = 5)
+    predictions = cross_val_predict(mod, x_test, y_test, cv = 5)
+    print("Accuracy:", round(acc.mean(),3))
+    print("Classification Report \n",classification_report(predictions, y_test))
 
-model = LogisticRegression()
+max_words = round(df['filtered_text'].apply(lambda x: len(x.split())).max())
 
-epochs = 100
-patience = 5
-best_loss = float("inf")
+tokenizer = Tokenizer()
+tokenizer.fit_on_texts(df['filtered_text'])
+word_index = tokenizer.word_index
 
-for i in range(epochs):
+train_seq = tokenizer.texts_to_sequences(df['filtered_text'])
+pad_train = pad_sequences(train_seq, maxlen=max_words, truncating='post')
 
-    model.fit(X_train, y_train)
 
-    val_predictions = model.predict(X_val)
-    val_loss = np.mean((val_predictions - y_val) ** 2)
+word_idx_count = len(word_index)
+print(word_idx_count)
 
-    mse = mean_squared_error(y_val, val_predictions, squared=False)
-    mcrmse = np.mean(np.sqrt(mse))
+tokenizer.word_counts
 
-    print(f"Epoch: {i + 1}, Val MCRMSE: {mcrmse:.3f}")
+scList = ['cohesion', 'syntax', 'vocabulary', 'phraseology', 'grammar', 'conventions']
 
-    if val_loss < best_loss:
-        best_loss = val_loss
-        best_epoch = epoch + 1
+X = pad_train
 
-        # Create state dict
-        state_dict = {"coef_": model.coef_,
-                      "intercept_": model.intercept_}
+for score in scList:
+    y = df[score].replace([1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0], [0, 1, 2, 3, 4, 5, 6, 7, 8])
+    # Create a train-test split of these variables
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.25, random_state=42)
+    model = LogisticRegression()
+    modelRes(model, score, X_train, y_train, X_test, y_test)
 
-        # Save to pth
-        path = f"best_logreg_{best_epoch}_{val_loss:.3f}.pth"
-        torch.save(state_dict, path)
+#%%
+from sklearn.metrics import accuracy_score, f1_score
 
-    print(f"Saved best model for epoch {best_epoch} with loss {best_loss:.3f}")
+test = pd.read_csv("test_df.csv")
+test['filtered_text'] = remove_noise(test['full_text'])
+
+test_seq = tokenizer.texts_to_sequences(test['filtered_text'])
+pad_test = pad_sequences(test_seq, maxlen=max_words, truncating='post')
+
+submission = pd.DataFrame()
+accuracy_scores = {}
+f1_scores = {}
+
+submission['text_id'] = test['text_id'].copy()
+
+for score in scList:
+    y = df[score].replace([1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0], [0, 1, 2, 3, 4, 5, 6, 7, 8])
+    model = LogisticRegression()
+    model.fit(pad_train, y)
+    train_predictions = model.predict(pad_train)
+    accuracy = accuracy_score(y, train_predictions)
+    accuracy_scores[score] = accuracy
+    # Calculate F1 score
+    f1 = f1_score(y, train_predictions, average='macro')  # You can specify the averaging method
+    f1_scores[score] = f1
+
+    print(f"{score} - Accuracy: {accuracy}, F1 Score: {f1}")
+
+    submission[score] = model.predict(pad_test).tolist()
+

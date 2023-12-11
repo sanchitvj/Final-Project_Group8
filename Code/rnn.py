@@ -5,20 +5,15 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 import pandas as pd
 from nltk.tokenize import word_tokenize
-from keras.preprocessing.text import Tokenizer
-from keras.preprocessing.sequence import pad_sequences
 from tqdm.notebook import tqdm
 from sklearn.model_selection import train_test_split
 import gc
 from sklearn.metrics import mean_squared_error
 
 
-
 df = pd.read_csv('train_df.csv')
 test = pd.read_csv('test_df.csv')
 
-tkz = Tokenizer(lower=False,oov_token='<OOV>')
-tkz.fit_on_texts(df['full_text'])
 
 
 class EssayDataset:
@@ -36,16 +31,18 @@ class EssayDataset:
 
     def __getitem__(self, idx):
         text = self.texts[idx]
-        text = self.tokenizer.texts_to_sequences([text])[0]
-        text = pad_sequences([text], maxlen=self.max_length, padding='pre', truncating='post')[0]
-        text = torch.tensor(text, dtype=torch.long)
+
+        text = torch.tensor(self.tokenizer.texts_to_sequences([text])[0])
+
+        text = nn.functional.pad(text, (0, self.max_length - text.shape[0]))
+
         if self.test is False:
             label = self.labels[idx, :] / 5.
             label = torch.tensor(label, dtype=torch.float32)
-            return text, label
-        return text
+        return text, label
 
 
+#%%
 # sample_ds = EssayDataset(df, 512, tkz)
 # sample_ds[0]
 
