@@ -1,0 +1,28 @@
+# INITIAL SETTINGS
+
+dataset:
+  data_path: 'train_df.csv'
+  num_workers: 8
+  tr_batch_size: 2
+  vl_batch_size: 8
+  max_len: 1024
+  labels: ['cohesion', 'syntax', 'vocabulary', 'phraseology', 'grammar', 'conventions']
+
+model:
+  backbone_name: 'bert-base-uncased'  # 'microsoft/deberta-v3-base'  'roberta-large'
+                   #  'google/electra-base-discriminator'  'bert-base-uncased'
+  gradient_checkpointing: True
+  pooling: 'conv1d'  # 'lstm', 'mean'  concat  conv1d
+  saved_model_path: ''
+
+  lstm_params:
+    hidden_size: 1024
+    dropout_rate: 0.1
+    bidirectional: False
+
+  concat_params:
+    n_layers: 4
+
+  conv1d_params:
+    num_filters: 128
+    kernel_size: 3
