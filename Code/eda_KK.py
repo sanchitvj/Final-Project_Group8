@@ -9,7 +9,7 @@ from nltk.tokenize import word_tokenize, sent_tokenize
 train = pd.read_csv('train.csv')
 test = pd.read_csv('test.csv')
 
-#train.head()
+train.head()
 train.info()
 train.describe().T
 
